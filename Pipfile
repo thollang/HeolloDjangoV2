@@ -10,6 +10,7 @@ autopep8 = "*"
 [packages]
 django = "==2.2.14"
 markdown = "*"
+gunicorn = "*"
 
 [requires]
 python_version = "3.6"
