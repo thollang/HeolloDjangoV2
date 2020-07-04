@@ -3,6 +3,7 @@ version: '3'
 volumes:
   static:
   database:
+  esdata:
 
 services:
   HelloDjangoV2:
