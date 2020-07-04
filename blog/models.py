@@ -1,11 +1,30 @@
 
 # Create your models here.
 import markdown
+import re
 from django.utils.html import strip_tags
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.urls import reverse
+from django.utils.text import slugify
+from django.utils.functional import cached_property
+from markdown.extensions.toc import TocExtension
+
+
+def generate_rich_content(value):
+    md = markdown.Markdown(
+        extensions=[
+            "markdown.extensions.extra",
+            "markdown.extensions.codehilite",
+            # 记得在顶部引入 TocExtension 和 slugify
+            TocExtension(slugify=slugify),
+        ]
+    )
+    content = md.convert(value)
+    m = re.search(r'<div class="toc">\s*<ul>(.*)</ul>\s*</div>', md.toc, re.S)
+    toc = m.group(1) if m is not None else ""
+    return {"content": content, "toc": toc}
 
 
 class Category(models.Model):
@@ -54,11 +73,14 @@ class Post(models.Model):
     tags = models.ManyToManyField(Tag, verbose_name='标签', blank=True)
     author = models.ForeignKey(
         User, verbose_name='作者', on_delete=models.CASCADE)
+    views = models.PositiveIntegerField(
+        default=0, verbose_name='浏览量')
 
     class Meta:
         verbose_name = '文章'
         verbose_name_plural = verbose_name
         ordering = ['-created_time']
+
     def __str__(self):
         return self.title
 
@@ -81,3 +103,19 @@ class Post(models.Model):
 
     def get_absolute_url(self):
         return reverse('blog:detail', kwargs={'pk': self.pk})
+
+    def increase_views(self):
+        self.views += 1
+        self.save(update_fields=['views'])
+
+    @property
+    def toc(self):
+        return self.rich_content.get("toc", "")
+
+    @property
+    def body_html(self):
+        return self.rich_content.get("content", "")
+
+    @cached_property
+    def rich_content(self):
+        return generate_rich_content(self.body)
